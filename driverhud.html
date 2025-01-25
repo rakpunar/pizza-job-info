@@ -1,108 +1,225 @@
 <html>
-    <title>DriveHUD</title>
+    <title>DriveHUD Pro</title>
     <style>
+        :root {
+            --gauge-size: 180px;
+            --needle-color: #e74c3c;
+            --gauge-bg: rgba(30, 30, 30, 0.95);
+        }
+
         body {
-            font-family: 'Arial', sans-serif;
-            background: transparent;
             margin: 0;
             padding: 20px;
+            background: transparent;
+            font-family: 'Arial', sans-serif;
             color: white;
+            height: 100vh;
+            display: grid;
+            grid-template-columns: auto 300px;
+            gap: 20px;
             overflow: hidden;
         }
-        .container {
-            background: rgba(40, 40, 40, 0.9);
+
+        .gauges {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .gauge-container {
+            background: var(--gauge-bg);
             border-radius: 15px;
             padding: 20px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+            backdrop-filter: blur(5px);
+            position: relative;
+        }
+
+        .gauge {
+            width: var(--gauge-size);
+            height: var(--gauge-size);
+            border-radius: 50%;
+            position: relative;
+            background: conic-gradient(
+                #2ecc71 0deg,
+                #f1c40f 180deg,
+                #e74c3c 270deg,
+                #e74c3c 360deg
+            );
+            -webkit-mask: radial-gradient(transparent 55%, black 56%);
+        }
+
+        .needle {
+            width: 2px;
+            height: 45%;
+            background: var(--needle-color);
+            position: absolute;
+            left: 50%;
+            bottom: 50%;
+            transform-origin: bottom;
+            transition: transform 0.1s ease-out;
+            box-shadow: 0 0 5px var(--needle-color);
+        }
+
+        .gauge-labels {
+            position: absolute;
+            width: 100%;
+            text-align: center;
+            top: 65%;
+            font-size: 1.4em;
+            font-weight: bold;
+            text-shadow: 0 0 5px black;
+        }
+
+        .mission-panel {
+            background: var(--gauge-bg);
+            border-radius: 15px;
+            padding: 15px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
             backdrop-filter: blur(5px);
         }
-        .speedometer {
-            font-size: 4em;
-            font-weight: bold;
-            text-align: center;
-            background: linear-gradient(45deg, #2ecc71, #3498db);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin: 20px 0;
-        }
-        .mission {
+
+        .mission-title {
             color: #f1c40f;
             font-size: 1.2em;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
         }
-        .inventory table {
-            width: 100%;
-            border-collapse: collapse;
+
+        .inventory {
+            background: var(--gauge-bg);
+            border-radius: 15px;
+            padding: 15px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+            backdrop-filter: blur(5px);
+            max-height: 300px;
+            overflow-y: auto;
         }
-        .inventory th {
-            background: #e74c3c;
-            padding: 10px;
-            text-align: left;
+
+        .inventory-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
         }
-        .inventory td {
-            padding: 8px;
-            border-bottom: 1px solid #7f8c8d;
+
+        .vehicle-status {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--gauge-bg);
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 0.9em;
+            opacity: 0.8;
         }
     </style>
-    
-    <div class="container">
-        <div class="speedometer" id="speed">0 KM/H</div>
-        
-        <div class="mission">
-            📌 Aktif Görev: <span id="mission">Yok</span>
+
+    <div class="gauges">
+        <!-- Hız Göstergesi -->
+        <div class="gauge-container">
+            <div class="gauge" id="speedGauge">
+                <div class="needle" id="speedNeedle"></div>
+            </div>
+            <div class="gauge-labels">
+                <div>KM/H</div>
+                <div id="speedValue">0</div>
+            </div>
         </div>
 
-        <div class="inventory">
-            <table>
-                <tr><th>Eşya</th><th>Miktar</th></tr>
-                <tbody id="inventoryItems"></tbody>
-            </table>
+        <!-- RPM Göstergesi -->
+        <div class="gauge-container">
+            <div class="gauge" id="rpmGauge">
+                <div class="needle" id="rpmNeedle"></div>
+            </div>
+            <div class="gauge-labels">
+                <div>RPM</div>
+                <div id="rpmValue">0</div>
+            </div>
         </div>
     </div>
 
+    <div class="right-panel">
+        <div class="mission-panel">
+            <div class="mission-title">📌 Aktif Görev</div>
+            <div id="mission">Yükleniyor...</div>
+        </div>
+
+        <div class="inventory">
+            <div class="mission-title">🎒 Envanter</div>
+            <div id="inventoryItems"></div>
+        </div>
+    </div>
+
+    <div class="vehicle-status" id="vehicleStatus">
+        🚗 Araç: Yaya Modu
+    </div>
+
     <script>
-        let lastPos = {x: 0, y: 0, time: Date.now()};
-        
+        // Hız Hesaplama ve Gösterge Kontrolü
+        function updateSpeed(speedMps) {
+            const speedKmh = Math.round(speedMps * 3.6);
+            const rotation = (speedKmh / 240) * 270 - 135; // 0-240 km/h aralığı
+            document.getElementById('speedNeedle').style.transform = `rotate(${rotation}deg)`;
+            document.getElementById('speedValue').textContent = speedKmh;
+        }
+
+        // RPM Gösterge Kontrolü
+        function updateRPM(rpmNormalized) {
+            const rpm = Math.round(rpmNormalized * 8000);
+            const rotation = (rpm / 8000) * 270 - 135; // 0-8000 RPM aralığı
+            document.getElementById('rpmNeedle').style.transform = `rotate(${rotation}deg)`;
+            document.getElementById('rpmValue').textContent = rpm;
+        }
+
+        // Araç Durumu Güncelleme
+        function updateVehicleStatus(vehicleData) {
+            const statusElement = document.getElementById('vehicleStatus');
+            if(vehicleData.vehicle === 'onFoot') {
+                statusElement.innerHTML = '🚶 Yaya Modu';
+            } else {
+                statusElement.innerHTML = `
+                    🚗 ${vehicleData.vehicleMake} ${vehicleData.vehicleName}
+                    <br>⚙️ Sınıf: ${vehicleData.vehicleClassName} (${vehicleData.vehicleClass})
+                `;
+            }
+        }
+
+        // Envanter Güncelleme
+        function updateInventory(inventory) {
+            const container = document.getElementById('inventoryItems');
+            container.innerHTML = Object.entries(inventory)
+                .map(([item, data]) => `
+                    <div class="inventory-item">
+                        <span>${item.replace(/_/g, ' ')}</span>
+                        <span>${data.amount}x</span>
+                    </div>`
+                ).join('');
+        }
+
+        // Mesaj Dinleyici
         window.addEventListener("message", (event) => {
             const data = event.data.data;
             
-            // Hız Hesaplama
-            if(data.pos_x && data.pos_y) {
-                const currentTime = Date.now();
-                const distance = Math.sqrt(
-                    Math.pow(data.pos_x - lastPos.x, 2) +
-                    Math.pow(data.pos_y - lastPos.y, 2)
-                );
-                const speed = (distance / ((currentTime - lastPos.time)/1000)) * 3.6; // m/s -> km/h
-                document.getElementById("speed").textContent = `${Math.round(speed)} KM/H`;
-                
-                lastPos = {x: data.pos_x, y: data.pos_y, time: currentTime};
-            }
-
-            // Görev Bilgisi
-            if(data.menu) {
-                document.getElementById("mission").textContent = data.menu;
-            }
-
-            // Envanter
-            if(data.inventory) {
-                const inventory = JSON.parse(data.inventory);
-                const tbody = document.getElementById("inventoryItems");
-                tbody.innerHTML = '';
-                
-                Object.entries(inventory).forEach(([item, count]) => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `<td>${item}</td><td>${count}</td>`;
-                    tbody.appendChild(row);
+            if(data.speed !== undefined) updateSpeed(data.speed);
+            if(data.rpm !== undefined) updateRPM(data.rpm);
+            if(data.job_name) document.getElementById('mission').textContent = data.job_name;
+            if(data.inventory) updateInventory(JSON.parse(data.inventory));
+            
+            // Araç bilgilerini güncelle
+            if(data.vehicle || data.vehicleMake) {
+                updateVehicleStatus({
+                    vehicle: data.vehicle,
+                    vehicleMake: data.vehicleMake,
+                    vehicleName: data.vehicleName,
+                    vehicleClass: data.vehicleClass,
+                    vehicleClassName: data.vehicleClassName
                 });
             }
         });
 
         // Pencere Kontrolü
         window.addEventListener('keydown', (e) => {
-            if(e.key === "Escape") {
-                window.parent.postMessage({type: "pin"}, "*");
-            }
+            if(e.key === "Escape") window.parent.postMessage({type: "pin"}, "*");
         });
     </script>
 </html>
