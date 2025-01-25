@@ -1,158 +1,92 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Araç Takip</title>
+    <title>Basic Tracker</title>
     <style>
         body {
             font-family: Arial;
-            margin: 0;
-            padding: 15px;
-            background: rgba(0,0,0,0.7);
+            background: rgba(0,0,0,0.8);
             color: white;
+            padding: 15px;
+        }
+        .container {
             width: 300px;
-            position: absolute;
+            position: fixed;
             right: 20px;
             top: 20px;
         }
-        .card {
+        .info-box {
             background: rgba(30,30,30,0.9);
-            border-radius: 8px;
-            padding: 12px;
+            padding: 10px;
+            border-radius: 5px;
             margin-bottom: 10px;
         }
-        .gauge {
-            height: 12px;
-            background: #222;
-            border-radius: 6px;
-            overflow: hidden;
-            margin: 5px 0;
+        .label { 
+            color: #999;
+            font-size: 12px; 
         }
-        .gauge-fill {
-            height: 100%;
-            width: 0%;
-            border-radius: 6px;
-            transition: all 0.3s;
-        }
-        .gauge-rpm { background: linear-gradient(90deg, #00ff00, #ff0000); }
-        .gauge-fuel { background: #2196F3; }
-        .gauge-health { background: #4CAF50; }
-        .status { font-size: 12px; padding: 3px 6px; border-radius: 3px; }
-        .on { background: #4CAF50; }
-        .off { background: #f44336; }
-        h2 { 
-            font-size: 14px;
-            margin: 0 0 8px 0;
-            color: #ccc;
-        }
-        .value {
-            font-size: 18px;
-            font-weight: bold;
-            margin: 5px 0;
-        }
-        .details {
-            font-size: 12px;
-            color: #aaa;
+        .value { 
+            font-size: 16px;
+            margin-top: 3px;
         }
     </style>
 </head>
 <body>
-    <div class="card">
-        <h2>ARAÇ BİLGİLERİ</h2>
-        <div class="value" id="vehicleName">-</div>
-        <div class="details" id="vehicleDetails">-</div>
-        <div class="status off" id="engineStatus">MOTOR KAPALI</div>
-    </div>
-
-    <div class="card">
-        <h2>MOTOR RPM</h2>
-        <div class="value" id="rpmValue">0 RPM</div>
-        <div class="gauge">
-            <div class="gauge-fill gauge-rpm" id="rpmGauge"></div>
+    <div class="container">
+        <div class="info-box">
+            <div class="label">OYUNCU BİLGİSİ</div>
+            <div class="value" id="playerInfo">-</div>
         </div>
-    </div>
 
-    <div class="card">
-        <h2>YAKIT</h2>
-        <div class="value" id="fuelValue">%0</div>
-        <div class="gauge">
-            <div class="gauge-fill gauge-fuel" id="fuelGauge"></div>
+        <div class="info-box">
+            <div class="label">KONUM</div>
+            <div class="value" id="location">-</div>
         </div>
-    </div>
 
-    <div class="card">
-        <h2>SAĞLIK DURUMU</h2>
-        <div class="value" id="healthValue">%100</div>
-        <div class="gauge">
-            <div class="gauge-fill gauge-health" id="healthGauge"></div>
+        <div class="info-box">
+            <div class="label">BAKIYE</div>
+            <div class="value" id="money">-</div>
         </div>
     </div>
 
     <script>
-        const dataCache = {};
-        
-        function updateUI(data) {
-            if (data.vehicle === 'onFoot') {
-                document.getElementById("vehicleName").textContent = 'YAYA';
-                document.getElementById("vehicleDetails").textContent = '-';
-                document.getElementById("engineStatus").className = 'status off';
-                document.getElementById("engineStatus").textContent = 'ARAÇTA DEĞİL';
-                document.getElementById("rpmValue").textContent = '0 RPM';
-                document.getElementById("rpmGauge").style.width = '0%';
-                document.getElementById("fuelValue").textContent = '%0';
-                document.getElementById("fuelGauge").style.width = '0%';
-                return;
+        const updateUI = (data) => {
+            if (data.name) {
+                document.getElementById('playerInfo').textContent = `${data.name} [ID: ${data.user_id || '-'}]`;
             }
 
-            // Araç bilgileri
-            const vehicleName = data.vehicleName || data.vehicle;
-            document.getElementById("vehicleName").textContent = vehicleName.toUpperCase();
-            document.getElementById("vehicleDetails").textContent = `${data.vehicleMake || ''} ${data.vehicleClassName || ''}`;
-            
-            const engineStatus = document.getElementById("engineStatus");
-            engineStatus.textContent = data.engine === "on" ? 'MOTOR ÇALIŞIYOR' : 'MOTOR KAPALI';
-            engineStatus.className = `status ${data.engine === "on" ? 'on' : 'off'}`;
+            if (data.zoneName || data.street) {
+                document.getElementById('location').textContent = 
+                    `${data.zoneName || ''} ${data.street ? `- ${data.street}` : ''}`;
+            }
 
-            // RPM
-            const rpm = data.rpm || 0;
-            document.getElementById("rpmValue").textContent = `${rpm} RPM`;
-            document.getElementById("rpmGauge").style.width = `${Math.min((rpm / 8000) * 100, 100)}%`;
-            
-            // Yakıt
-            const fuel = data.fuel || 0;
-            document.getElementById("fuelValue").textContent = `%${Math.round(fuel)}`;
-            document.getElementById("fuelGauge").style.width = `${fuel}%`;
+            if (data.wallet !== undefined || data.bank !== undefined) {
+                const wallet = data.wallet || 0;
+                const bank = data.bank || 0;
+                document.getElementById('money').textContent = 
+                    `$${wallet.toLocaleString()} (Banka: $${bank.toLocaleString()})`;
+            }
+        };
 
-            // Sağlık
-            const health = data.health || 100;
-            document.getElementById("healthValue").textContent = `%${Math.round(health)}`;
-            document.getElementById("healthGauge").style.width = `${health}%`;
-        }
-
-        window.addEventListener('message', function(event) {
-            const data = event.data;
+        window.addEventListener('message', (event) => {
+            const data = event.data.data;
             if (!data) return;
-            
-            Object.assign(dataCache, data);
-            updateUI(dataCache);
+            updateUI(data);
         });
 
-        // Başlangıç verisi isteği
+        // ESC ile kapat
+        document.addEventListener('keyup', (event) => {
+            if (event.key === 'Escape') {
+                window.parent.postMessage({type: 'close'}, '*');
+            }
+        });
+
+        // İlk veri isteği
         fetch('nui://game/getData', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'getData' })
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({type: 'getData'})
         }).catch(console.error);
-
-        // ESC tuşu kontrolü
-        document.addEventListener('keyup', function(event) {
-            if (event.keyCode === 27) {
-                fetch('nui://game/close', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ type: 'close' })
-                });
-            }
-        });
     </script>
 </body>
 </html>
