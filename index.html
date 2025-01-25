@@ -16,6 +16,7 @@
                 <div class="search-bar">
                     <input type="text" id="searchData" placeholder="Search data..." onkeyup="filterData()">
                     <button onclick="refreshData()">🔄 Refresh</button>
+                    <button onclick="copyDataToClipboard()" style="background-color: #2196F3;">📋 Copy Data</button>
                     <button onclick="clearCacheAndReload()" style="background-color: #ff4444;">🗑️ Clear Cache</button>
                 </div>
                 <div class="data-container">
@@ -292,6 +293,13 @@
                     <p>Type: ${event.type}</p>
                 </div>
             `).join('');
+        }
+                // Yeni fonksiyon
+        function copyDataToClipboard() {
+            const dataStr = JSON.stringify(cachedData, null, 2);
+            navigator.clipboard.writeText(dataStr)
+                .then(() => alert('Data copied to clipboard!'))
+                .catch(err => console.error('Copy failed:', err));
         }
     </script>
 
