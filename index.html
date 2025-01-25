@@ -1,138 +1,158 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>FiveM Araç Takip</title>
+    <title>Araç Takip</title>
     <style>
-        body { 
-            font-family: Arial; 
-            background: rgba(0, 0, 0, 0.8);
-            color: #fff;
+        body {
+            font-family: Arial;
             margin: 0;
-            padding: 20px;
+            padding: 15px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            width: 300px;
             position: absolute;
             right: 20px;
             top: 20px;
-            width: 300px;
         }
-        .container { 
-            margin: auto;
-        }
-        .card { 
-            background: #2d2d2d;
-            padding: 15px;
-            border-radius: 10px;
+        .card {
+            background: rgba(30,30,30,0.9);
+            border-radius: 8px;
+            padding: 12px;
             margin-bottom: 10px;
         }
         .gauge {
-            height: 15px;
-            background: #404040;
-            border-radius: 5px;
-            margin: 5px 0;
+            height: 12px;
+            background: #222;
+            border-radius: 6px;
             overflow: hidden;
+            margin: 5px 0;
         }
         .gauge-fill {
             height: 100%;
-            background: #4CAF50;
-            transition: width 0.3s;
+            width: 0%;
+            border-radius: 6px;
+            transition: all 0.3s;
+        }
+        .gauge-rpm { background: linear-gradient(90deg, #00ff00, #ff0000); }
+        .gauge-fuel { background: #2196F3; }
+        .gauge-health { background: #4CAF50; }
+        .status { font-size: 12px; padding: 3px 6px; border-radius: 3px; }
+        .on { background: #4CAF50; }
+        .off { background: #f44336; }
+        h2 { 
+            font-size: 14px;
+            margin: 0 0 8px 0;
+            color: #ccc;
         }
         .value {
             font-size: 18px;
             font-weight: bold;
             margin: 5px 0;
         }
-        .label {
-            color: #888;
+        .details {
             font-size: 12px;
-        }
-        .status {
-            padding: 3px 8px;
-            border-radius: 3px;
-            font-size: 12px;
-        }
-        .status.on { background: #4CAF50; }
-        .status.off { background: #f44336; }
-        h2 {
-            margin: 0 0 10px 0;
-            font-size: 16px;
+            color: #aaa;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="card">
-            <h2>Araç Bilgileri</h2>
-            <div class="label">Model</div>
-            <div id="vehicleName" class="value">-</div>
-            <div class="label">Motor</div>
-            <div id="engineStatus" class="status">-</div>
-        </div>
-        
-        <div class="card">
-            <h2>Motor RPM</h2>
-            <div id="rpmValue" class="value">0</div>
-            <div class="gauge">
-                <div id="rpmGauge" class="gauge-fill"></div>
-            </div>
-        </div>
+    <div class="card">
+        <h2>ARAÇ BİLGİLERİ</h2>
+        <div class="value" id="vehicleName">-</div>
+        <div class="details" id="vehicleDetails">-</div>
+        <div class="status off" id="engineStatus">MOTOR KAPALI</div>
+    </div>
 
-        <div class="card">
-            <h2>Yakıt</h2>
-            <div id="fuelValue" class="value">0%</div>
-            <div class="gauge">
-                <div id="fuelGauge" class="gauge-fill"></div>
-            </div>
+    <div class="card">
+        <h2>MOTOR RPM</h2>
+        <div class="value" id="rpmValue">0 RPM</div>
+        <div class="gauge">
+            <div class="gauge-fill gauge-rpm" id="rpmGauge"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>YAKIT</h2>
+        <div class="value" id="fuelValue">%0</div>
+        <div class="gauge">
+            <div class="gauge-fill gauge-fuel" id="fuelGauge"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>SAĞLIK DURUMU</h2>
+        <div class="value" id="healthValue">%100</div>
+        <div class="gauge">
+            <div class="gauge-fill gauge-health" id="healthGauge"></div>
         </div>
     </div>
 
     <script>
-    let dataCache = {};
-    
-    window.addEventListener('message', function(event) {
-        if (!event.data) return;
+        const dataCache = {};
         
-        // Her bir veriyi önbelleğe kaydet
-        Object.assign(dataCache, event.data);
-        updateUI(dataCache);
-    });
+        function updateUI(data) {
+            if (data.vehicle === 'onFoot') {
+                document.getElementById("vehicleName").textContent = 'YAYA';
+                document.getElementById("vehicleDetails").textContent = '-';
+                document.getElementById("engineStatus").className = 'status off';
+                document.getElementById("engineStatus").textContent = 'ARAÇTA DEĞİL';
+                document.getElementById("rpmValue").textContent = '0 RPM';
+                document.getElementById("rpmGauge").style.width = '0%';
+                document.getElementById("fuelValue").textContent = '%0';
+                document.getElementById("fuelGauge").style.width = '0%';
+                return;
+            }
 
-    function updateUI(data) {
-        if (!data) return;
+            // Araç bilgileri
+            const vehicleName = data.vehicleName || data.vehicle;
+            document.getElementById("vehicleName").textContent = vehicleName.toUpperCase();
+            document.getElementById("vehicleDetails").textContent = `${data.vehicleMake || ''} ${data.vehicleClassName || ''}`;
+            
+            const engineStatus = document.getElementById("engineStatus");
+            engineStatus.textContent = data.engine === "on" ? 'MOTOR ÇALIŞIYOR' : 'MOTOR KAPALI';
+            engineStatus.className = `status ${data.engine === "on" ? 'on' : 'off'}`;
 
-        const vehicle = data.vehicle || 'onFoot';
-        if (vehicle === 'onFoot') {
-            document.getElementById("vehicleName").textContent = 'Yaya';
-            document.getElementById("engineStatus").textContent = '-';
-            document.getElementById("rpmValue").textContent = '0';
-            document.getElementById("rpmGauge").style.width = '0%';
-            document.getElementById("fuelValue").textContent = '0%';
-            document.getElementById("fuelGauge").style.width = '0%';
-            return;
+            // RPM
+            const rpm = data.rpm || 0;
+            document.getElementById("rpmValue").textContent = `${rpm} RPM`;
+            document.getElementById("rpmGauge").style.width = `${Math.min((rpm / 8000) * 100, 100)}%`;
+            
+            // Yakıt
+            const fuel = data.fuel || 0;
+            document.getElementById("fuelValue").textContent = `%${Math.round(fuel)}`;
+            document.getElementById("fuelGauge").style.width = `${fuel}%`;
+
+            // Sağlık
+            const health = data.health || 100;
+            document.getElementById("healthValue").textContent = `%${Math.round(health)}`;
+            document.getElementById("healthGauge").style.width = `${health}%`;
         }
 
-        // Araç bilgileri
-        document.getElementById("vehicleName").textContent = data.vehicleName || vehicle;
-        
-        const engineStatus = document.getElementById("engineStatus");
-        engineStatus.textContent = data.engine === "on" ? "ÇALIŞIYOR" : "KAPALI";
-        engineStatus.className = "status " + (data.engine === "on" ? "on" : "off");
+        window.addEventListener('message', function(event) {
+            const data = event.data;
+            if (!data) return;
+            
+            Object.assign(dataCache, data);
+            updateUI(dataCache);
+        });
 
-        // RPM
-        const rpm = data.rpm || 0;
-        document.getElementById("rpmValue").textContent = rpm + " RPM";
-        document.getElementById("rpmGauge").style.width = Math.min((rpm / 8000 * 100), 100) + "%";
-        
-        // Yakıt
-        const fuel = data.fuel || 0;
-        document.getElementById("fuelValue").textContent = Math.round(fuel) + "%";
-        document.getElementById("fuelGauge").style.width = fuel + "%";
-    }
+        // Başlangıç verisi isteği
+        fetch('nui://game/getData', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'getData' })
+        }).catch(console.error);
 
-    // Başlangıç verisi isteği
-    fetch('nui://game/getData', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'getData' })
-    }).catch(console.error);
+        // ESC tuşu kontrolü
+        document.addEventListener('keyup', function(event) {
+            if (event.keyCode === 27) {
+                fetch('nui://game/close', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type: 'close' })
+                });
+            }
+        });
     </script>
 </body>
 </html>
