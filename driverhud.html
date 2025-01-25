@@ -1,0 +1,108 @@
+<html>
+    <title>DriveHUD</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: transparent;
+            margin: 0;
+            padding: 20px;
+            color: white;
+            overflow: hidden;
+        }
+        .container {
+            background: rgba(40, 40, 40, 0.9);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            backdrop-filter: blur(5px);
+        }
+        .speedometer {
+            font-size: 4em;
+            font-weight: bold;
+            text-align: center;
+            background: linear-gradient(45deg, #2ecc71, #3498db);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 20px 0;
+        }
+        .mission {
+            color: #f1c40f;
+            font-size: 1.2em;
+            margin-bottom: 15px;
+        }
+        .inventory table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .inventory th {
+            background: #e74c3c;
+            padding: 10px;
+            text-align: left;
+        }
+        .inventory td {
+            padding: 8px;
+            border-bottom: 1px solid #7f8c8d;
+        }
+    </style>
+    
+    <div class="container">
+        <div class="speedometer" id="speed">0 KM/H</div>
+        
+        <div class="mission">
+            📌 Aktif Görev: <span id="mission">Yok</span>
+        </div>
+
+        <div class="inventory">
+            <table>
+                <tr><th>Eşya</th><th>Miktar</th></tr>
+                <tbody id="inventoryItems"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let lastPos = {x: 0, y: 0, time: Date.now()};
+        
+        window.addEventListener("message", (event) => {
+            const data = event.data.data;
+            
+            // Hız Hesaplama
+            if(data.pos_x && data.pos_y) {
+                const currentTime = Date.now();
+                const distance = Math.sqrt(
+                    Math.pow(data.pos_x - lastPos.x, 2) +
+                    Math.pow(data.pos_y - lastPos.y, 2)
+                );
+                const speed = (distance / ((currentTime - lastPos.time)/1000)) * 3.6; // m/s -> km/h
+                document.getElementById("speed").textContent = `${Math.round(speed)} KM/H`;
+                
+                lastPos = {x: data.pos_x, y: data.pos_y, time: currentTime};
+            }
+
+            // Görev Bilgisi
+            if(data.menu) {
+                document.getElementById("mission").textContent = data.menu;
+            }
+
+            // Envanter
+            if(data.inventory) {
+                const inventory = JSON.parse(data.inventory);
+                const tbody = document.getElementById("inventoryItems");
+                tbody.innerHTML = '';
+                
+                Object.entries(inventory).forEach(([item, count]) => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `<td>${item}</td><td>${count}</td>`;
+                    tbody.appendChild(row);
+                });
+            }
+        });
+
+        // Pencere Kontrolü
+        window.addEventListener('keydown', (e) => {
+            if(e.key === "Escape") {
+                window.parent.postMessage({type: "pin"}, "*");
+            }
+        });
+    </script>
+</html>
