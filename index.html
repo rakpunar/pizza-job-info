@@ -16,6 +16,7 @@
                 <div class="search-bar">
                     <input type="text" id="searchData" placeholder="Search data..." onkeyup="filterData()">
                     <button onclick="refreshData()">🔄 Refresh</button>
+                    <button onclick="clearCacheAndReload()" style="background-color: #ff4444;">🗑️ Clear Cache</button>
                 </div>
                 <div class="data-container">
                     <table id="dataTable">
@@ -122,6 +123,11 @@
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             document.getElementById(tabName).classList.add('active');
             document.getElementById(tabName + 'Tab').classList.add('active');
+        }
+
+        function clearCacheAndReload() {
+            localStorage.clear();
+            window.location.reload(true);
         }
 
         function refreshData() {
