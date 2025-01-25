@@ -1,146 +1,115 @@
 <html>
-    <title>Task Tracker</title>
-    <div style="width: 300px; position: fixed; right: 20px; top: 20px; font-family: Arial; color: white;">
-        <div id="dragHeader" style="background: rgba(30,30,30,0.95); padding: 8px; border-radius: 5px 5px 0 0; cursor: move; display: flex; justify-content: space-between; align-items: center;">
+    <title>Status Tracker</title>
+    <div id="container" style="width: 300px; position: fixed; right: 20px; top: 20px; font-family: Arial; color: white;">
+        <div id="dragHeader" style="background: rgba(30,30,30,0.95); padding: 8px; border-radius: 5px 5px 0 0; cursor: move;">
             <span style="font-size: 12px; color: #999;">DURUM TAKİP</span>
-            <button id="lockBtn" style="background: none; border: none; color: white; cursor: pointer; padding: 2px 8px;">🔒</button>
         </div>
 
-        <div style="background: rgba(30,30,30,0.95); padding: 10px; border-radius: 0 0 5px 5px;">
+        <div id="content" style="background: rgba(30,30,30,0.95); padding: 10px; border-radius: 0 0 5px 5px;">
+            <div id="error" style="color: #ff4444; margin-bottom: 10px; display: none;">Veri alınamadı!</div>
+            
             <div style="margin-bottom: 15px;">
                 <div style="color: #999; font-size: 12px;">AKTİF GÖREV</div>
                 <div style="font-size: 16px; margin-top: 3px;" id="activeTask">-</div>
             </div>
 
-            <div style="margin-bottom: 15px;">
+            <div>
                 <div style="color: #999; font-size: 12px;">ENVANTER</div>
-                <div id="inventory" style="font-size: 14px; margin-top: 3px;">
-                    <div class="inv-item">
-                        <span>Pizza:</span>
-                        <span id="inv_pizza">0</span>
-                    </div>
-                    <div class="inv-item">
-                        <span>Fries:</span>
-                        <span id="inv_fries">0</span>
-                    </div>
-                    <div class="inv-item">
-                        <span>Soda:</span>
-                        <span id="inv_soda">0</span>
-                    </div>
-                    <div class="inv-item">
-                        <span>Exp. Water:</span>
-                        <span id="inv_expensivewater">0</span>
-                    </div>
-                    <div class="inv-item">
-                        <span>Ch. Nuggets:</span>
-                        <span id="inv_chickennuggets">0</span>
-                    </div>
-                </div>
+                <div id="inventory" style="font-size: 14px; margin-top: 3px;">Yükleniyor...</div>
             </div>
         </div>
     </div>
 
-    <style>
-        .inv-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 2px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
-        .inv-item:last-child {
-            border-bottom: none;
-        }
-    </style>
-
     <script>
-        const container = document.querySelector('div');
-        const dragHeader = document.getElementById('dragHeader');
-        const lockBtn = document.getElementById('lockBtn');
-        let isDragging = false;
-        let isLocked = true;
-        let currentX;
-        let currentY;
-        let initialX;
-        let initialY;
+        const dragElement = (elmnt) => {
+            let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+            elmnt.onmousedown = dragMouseDown;
 
-        // Konum yükleme
-        const savedPos = localStorage.getItem('taskTrackerPosition');
-        if (savedPos) {
-            const pos = JSON.parse(savedPos);
-            container.style.left = pos.x;
-            container.style.top = pos.y;
+            function dragMouseDown(e) {
+                e.preventDefault();
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                document.onmouseup = closeDragElement;
+                document.onmousemove = elementDrag;
+            }
+
+            function elementDrag(e) {
+                e.preventDefault();
+                pos1 = pos3 - e.clientX;
+                pos2 = pos4 - e.clientY;
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                
+                const newTop = elmnt.parentElement.offsetTop - pos2;
+                const newLeft = elmnt.parentElement.offsetLeft - pos1;
+                
+                elmnt.parentElement.style.top = Math.max(0, Math.min(window.innerHeight - elmnt.parentElement.offsetHeight, newTop)) + "px";
+                elmnt.parentElement.style.left = Math.max(0, Math.min(window.innerWidth - elmnt.parentElement.offsetWidth, newLeft)) + "px";
+                elmnt.parentElement.style.right = 'auto';
+            }
+
+            function closeDragElement() {
+                document.onmouseup = null;
+                document.onmousemove = null;
+            }
         }
 
-        dragHeader.addEventListener('mousedown', (e) => {
-            if (isLocked || e.target === lockBtn) return;
-            isDragging = true;
-            initialX = e.clientX - container.offsetLeft;
-            initialY = e.clientY - container.offsetTop;
-        });
+        dragElement(document.getElementById("dragHeader"));
 
-        document.addEventListener('mousemove', (e) => {
-            if (!isDragging) return;
-            currentX = e.clientX - initialX;
-            currentY = e.clientY - initialY;
-            
-            currentX = Math.max(0, Math.min(currentX, window.innerWidth - container.offsetWidth));
-            currentY = Math.max(0, Math.min(currentY, window.innerHeight - container.offsetHeight));
-            
-            container.style.left = currentX + 'px';
-            container.style.top = currentY + 'px';
-            container.style.right = 'auto';
-        });
+        let lastUpdate = 0;
+        const updateInterval = 1000;
 
-        document.addEventListener('mouseup', () => {
-            if (!isDragging) return;
-            isDragging = false;
-            localStorage.setItem('taskTrackerPosition', JSON.stringify({
-                x: container.style.left,
-                y: container.style.top
-            }));
-        });
-
-        lockBtn.addEventListener('click', () => {
-            isLocked = !isLocked;
-            lockBtn.textContent = isLocked ? '🔒' : '🔓';
-            dragHeader.style.cursor = isLocked ? 'default' : 'move';
-        });
-
-        const updateInventory = (inventory) => {
-            try {
-                const inv = typeof inventory === 'string' ? JSON.parse(inventory) : inventory;
-                
-                document.getElementById('inv_pizza').textContent = inv['Pizza'] || 0;
-                document.getElementById('inv_fries').textContent = inv['Fries'] || 0;
-                document.getElementById('inv_soda').textContent = inv['Soda'] || 0;
-                document.getElementById('inv_expensivewater').textContent = inv['Expensive Water'] || 0;
-                document.getElementById('inv_chickennuggets').textContent = inv['Chicken Nuggets'] || 0;
-            } catch (e) {
-                console.error('Envanter güncelleme hatası:', e);
-            }
+        const showError = () => {
+            document.getElementById('error').style.display = 'block';
+            document.getElementById('activeTask').textContent = '-';
+            document.getElementById('inventory').innerHTML = '-';
         };
 
         window.addEventListener("message", (event) => {
             const evt = event.data;
-            if (!evt.data) return;
+            if (!evt.data) {
+                showError();
+                return;
+            }
 
-            // Menü/Görev durumu
+            document.getElementById('error').style.display = 'none';
+            lastUpdate = Date.now();
+
             if (evt.data.job || evt.data.menu) {
                 const job = evt.data.job || '';
                 const menu = evt.data.menu || '';
                 const menuChoice = evt.data.menu_choice || '';
-                
-                document.getElementById('activeTask').textContent = 
-                    `${job} ${menu ? `(${menu})` : ''} ${menuChoice ? `- ${menuChoice}` : ''}`;
+                document.getElementById('activeTask').textContent = `${job} ${menu} ${menuChoice}`.trim();
             }
 
-            // Envanter
             if (evt.data.inventory) {
-                updateInventory(evt.data.inventory);
+                try {
+                    const inv = typeof evt.data.inventory === 'string' ? 
+                        JSON.parse(evt.data.inventory) : evt.data.inventory;
+
+                    const invHtml = Object.entries(inv)
+                        .map(([item, count]) => `<div style="display: flex; justify-content: space-between; padding: 2px 0;">
+                            <span>${item}:</span>
+                            <span>${count}</span>
+                        </div>`)
+                        .join('');
+
+                    document.getElementById('inventory').innerHTML = invHtml || 'Envanter boş';
+                } catch (e) {
+                    console.error('Envanter parse hatası:', e);
+                    document.getElementById('inventory').innerHTML = 'Envanter hatası';
+                }
             }
         });
 
         window.parent.postMessage({type: "getData"}, "*");
+
+        setInterval(() => {
+            if (Date.now() - lastUpdate > updateInterval * 2) {
+                showError();
+            }
+            window.parent.postMessage({type: "getData"}, "*");
+        }, updateInterval);
 
         window.addEventListener('keydown', (e) => {
             if (e.key === "Escape") {
