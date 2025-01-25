@@ -82,9 +82,10 @@
             lastUpdate = Date.now();
 
             if (evt.data.job || evt.data.menu) {
-                const job = evt.data.job || '';
-                const menu = evt.data.menu || '';
-                const menuChoice = evt.data.menu_choice || '';
+                const job = evt.data.job ? `İş: ${evt.data.job}` : '';
+                const menu = evt.data.menu ? `Menü: ${evt.data.menu}` : '';
+                const menuChoice = evt.data.menu_choice ? `Seçim: ${evt.data.menu_choice}` : '';
+                
                 document.getElementById('activeTask').textContent = `${job} ${menu} ${menuChoice}`.trim();
             }
 
@@ -92,18 +93,17 @@
                 try {
                     const inv = typeof evt.data.inventory === 'string' ? 
                         JSON.parse(evt.data.inventory) : evt.data.inventory;
-
+            
                     const invHtml = Object.entries(inv)
-                        .map(([item, count]) => `<div style="display: flex; justify-content: space-between; padding: 2px 0;">
+                        .map(([item, data]) => `<div style="display: flex; justify-content: space-between; padding: 2px 0;">
                             <span>${item}:</span>
-                            <span>${count}</span>
+                            <span>${data.amount || data}</span>
                         </div>`)
                         .join('');
-
+            
                     document.getElementById('inventory').innerHTML = invHtml || 'Envanter boş';
                 } catch (e) {
                     console.error('Envanter parse hatası:', e);
-                    document.getElementById('inventory').innerHTML = 'Envanter hatası';
                 }
             }
         });
