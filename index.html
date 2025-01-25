@@ -5,58 +5,55 @@
     <style>
         body { 
             font-family: Arial; 
-            background: #1a1a1a; 
-            color: #fff; 
+            background: rgba(0, 0, 0, 0.8);
+            color: #fff;
             margin: 0;
             padding: 20px;
+            position: absolute;
+            right: 20px;
+            top: 20px;
+            width: 300px;
         }
         .container { 
-            max-width: 800px; 
             margin: auto;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
         }
         .card { 
             background: #2d2d2d;
-            padding: 20px;
+            padding: 15px;
             border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 10px;
         }
         .gauge {
-            width: 100%;
-            height: 20px;
+            height: 15px;
             background: #404040;
-            border-radius: 10px;
-            margin: 10px 0;
+            border-radius: 5px;
+            margin: 5px 0;
             overflow: hidden;
         }
         .gauge-fill {
             height: 100%;
-            background: linear-gradient(90deg, #4CAF50, #45a049);
-            border-radius: 10px;
-            transition: width 0.3s ease;
+            background: #4CAF50;
+            transition: width 0.3s;
         }
         .value {
-            font-size: 24px;
+            font-size: 18px;
             font-weight: bold;
-            margin: 10px 0;
+            margin: 5px 0;
         }
         .label {
             color: #888;
-            font-size: 14px;
+            font-size: 12px;
         }
         .status {
-            padding: 5px 10px;
-            border-radius: 5px;
-            display: inline-block;
-            margin-top: 5px;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 12px;
         }
-        .status.on {
-            background: #4CAF50;
-        }
-        .status.off {
-            background: #f44336;
+        .status.on { background: #4CAF50; }
+        .status.off { background: #f44336; }
+        h2 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
         }
     </style>
 </head>
@@ -66,8 +63,6 @@
             <h2>Araç Bilgileri</h2>
             <div class="label">Model</div>
             <div id="vehicleName" class="value">-</div>
-            <div class="label">Marka</div>
-            <div id="vehicleMake" class="value">-</div>
             <div class="label">Motor</div>
             <div id="engineStatus" class="status">-</div>
         </div>
@@ -87,42 +82,35 @@
                 <div id="fuelGauge" class="gauge-fill"></div>
             </div>
         </div>
-        
-        <div class="card">
-            <h2>Konum</h2>
-            <div class="label">Bölge</div>
-            <div id="zoneName" class="value">-</div>
-            <div class="label">Sokak</div>
-            <div id="street" class="value">-</div>
-        </div>
     </div>
 
     <script>
-    let lastRequestTime = 0;
-    const updateInterval = 1000; // 1 saniye
-
-    function requestData() {
-        const now = Date.now();
-        if (now - lastRequestTime >= updateInterval) {
-            lastRequestTime = now;
-            fetch('nui://game/getData', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    type: 'getData'
-                })
-            }).catch(() => {
-                console.log('getData isteği başarısız');
-            });
-        }
-    }
+    let dataCache = {};
+    
+    window.addEventListener('message', function(event) {
+        if (!event.data) return;
+        
+        // Her bir veriyi önbelleğe kaydet
+        Object.assign(dataCache, event.data);
+        updateUI(dataCache);
+    });
 
     function updateUI(data) {
+        if (!data) return;
+
+        const vehicle = data.vehicle || 'onFoot';
+        if (vehicle === 'onFoot') {
+            document.getElementById("vehicleName").textContent = 'Yaya';
+            document.getElementById("engineStatus").textContent = '-';
+            document.getElementById("rpmValue").textContent = '0';
+            document.getElementById("rpmGauge").style.width = '0%';
+            document.getElementById("fuelValue").textContent = '0%';
+            document.getElementById("fuelGauge").style.width = '0%';
+            return;
+        }
+
         // Araç bilgileri
-        document.getElementById("vehicleName").textContent = data.vehicleName || '-';
-        document.getElementById("vehicleMake").textContent = data.vehicleMake || '-';
+        document.getElementById("vehicleName").textContent = data.vehicleName || vehicle;
         
         const engineStatus = document.getElementById("engineStatus");
         engineStatus.textContent = data.engine === "on" ? "ÇALIŞIYOR" : "KAPALI";
@@ -137,37 +125,14 @@
         const fuel = data.fuel || 0;
         document.getElementById("fuelValue").textContent = Math.round(fuel) + "%";
         document.getElementById("fuelGauge").style.width = fuel + "%";
-
-        // Konum
-        document.getElementById("zoneName").textContent = data.zoneName || '-';
-        document.getElementById("street").textContent = data.street || '-';
     }
 
-    // NUI mesajlarını dinle
-    window.addEventListener('message', function(event) {
-        if (event.data) {
-            updateUI(event.data);
-        }
-    });
-
-    // Periyodik veri güncelleme
-    setInterval(requestData, updateInterval);
-    requestData(); // İlk veri isteği
-
-    // ESC tuşu ile kapatma
-    document.addEventListener('keyup', function(event) {
-        if (event.keyCode === 27) {
-            fetch('nui://game/close', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    type: 'close'
-                })
-            });
-        }
-    });
+    // Başlangıç verisi isteği
+    fetch('nui://game/getData', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'getData' })
+    }).catch(console.error);
     </script>
 </body>
 </html>
