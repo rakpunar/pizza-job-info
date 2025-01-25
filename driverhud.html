@@ -1,225 +1,393 @@
 <html>
-    <title>DriveHUD Pro</title>
+    <div class="widget gauge-widget draggable" id="gauges">
+        <div class="gauge-container">
+            <div class="gauge speed">
+                <div class="gauge-center"></div>
+                <div class="needle speed-needle"></div>
+                <div class="gauge-value">0</div>
+                <div class="gauge-label">KM/H</div>
+            </div>
+            <div class="gauge rpm">
+                <div class="gauge-center"></div>
+                <div class="needle rpm-needle"></div>
+                <div class="gauge-value">0</div>
+                <div class="gauge-label">RPM x1000</div>
+            </div>
+            <div class="job-info">Current Job: <span id="jobName">None</span></div>
+        </div>
+    </div>
+
+    <div class="widget inventory-widget draggable" id="inventory">
+        <div class="inventory-header">
+            <h3>Inventory</h3>
+            <input type="text" id="inventorySearch" placeholder="Search items...">
+        </div>
+        <div class="inventory-content" id="inventoryItems"></div>
+        <div class="inventory-footer">
+            <span id="weight-info">Weight: 0/0</span>
+        </div>
+    </div>
+
+    <script>
+        let lastPosition = {
+            gauges: { top: '20px', left: '20px' },
+            inventory: { top: '20px', right: '20px' }
+        };
+
+        // Gauge logic
+        function updateGauges(speed, rpm) {
+            const speedDeg = Math.min(speed * 1.5, 270);
+            const rpmDeg = Math.min(rpm * 135, 270);
+            
+            document.querySelector('.speed-needle').style.transform = `rotate(${speedDeg}deg)`;
+            document.querySelector('.rpm-needle').style.transform = `rotate(${rpmDeg}deg)`;
+            
+            document.querySelector('.speed .gauge-value').textContent = Math.round(speed);
+            document.querySelector('.rpm .gauge-value').textContent = rpm.toFixed(1);
+        }
+
+        // Inventory logic
+        function updateInventory(inventoryData) {
+            const container = document.getElementById('inventoryItems');
+            const searchTerm = document.getElementById('inventorySearch').value.toLowerCase();
+            container.innerHTML = '';
+            
+            try {
+                const inventory = JSON.parse(inventoryData);
+                Object.entries(inventory)
+                    .sort((a, b) => a[0].localeCompare(b[0]))
+                    .forEach(([item, data]) => {
+                        if (!searchTerm || item.toLowerCase().includes(searchTerm)) {
+                            const itemElem = document.createElement('div');
+                            itemElem.className = 'inventory-item';
+                            const displayName = item
+                                .replace(/_/g, ' ')
+                                .replace(/\|/g, ' - ')
+                                .split(' ')
+                                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                                .join(' ');
+                            itemElem.innerHTML = `
+                                <span class="item-name">${displayName}</span>
+                                <span class="item-amount">${data.amount}</span>
+                            `;
+                            container.appendChild(itemElem);
+                        }
+                });
+            } catch (e) {
+                console.error('Error parsing inventory:', e);
+            }
+        }
+
+        // Save positions to localStorage
+        function savePositions() {
+            const widgets = document.querySelectorAll('.widget');
+            const positions = {};
+            
+            widgets.forEach(widget => {
+                positions[widget.id] = {
+                    top: widget.style.top,
+                    left: widget.style.left
+                };
+            });
+            
+            localStorage.setItem('widgetPositions', JSON.stringify(positions));
+        }
+
+        // Load positions from localStorage
+        function loadPositions() {
+            const savedPositions = localStorage.getItem('widgetPositions');
+            if (savedPositions) {
+                const positions = JSON.parse(savedPositions);
+                Object.entries(positions).forEach(([id, pos]) => {
+                    const widget = document.getElementById(id);
+                    if (widget) {
+                        widget.style.top = pos.top;
+                        widget.style.left = pos.left;
+                    }
+                });
+            }
+        }
+
+        // Draggable functionality
+        document.querySelectorAll('.draggable').forEach(draggable => {
+            let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+            
+            draggable.addEventListener('mousedown', dragMouseDown);
+
+            function dragMouseDown(e) {
+                if (e.target.tagName.toLowerCase() === 'input') return;
+                e.preventDefault();
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                document.addEventListener('mousemove', elementDrag);
+                document.addEventListener('mouseup', closeDragElement);
+                draggable.style.transition = 'none';
+            }
+
+            function elementDrag(e) {
+                e.preventDefault();
+                pos1 = pos3 - e.clientX;
+                pos2 = pos4 - e.clientY;
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                
+                const newTop = draggable.offsetTop - pos2;
+                const newLeft = draggable.offsetLeft - pos1;
+                
+                // Boundary check
+                const maxX = window.innerWidth - draggable.offsetWidth;
+                const maxY = window.innerHeight - draggable.offsetHeight;
+                
+                draggable.style.top = Math.max(0, Math.min(maxY, newTop)) + "px";
+                draggable.style.left = Math.max(0, Math.min(maxX, newLeft)) + "px";
+            }
+
+            function closeDragElement() {
+                document.removeEventListener('mousemove', elementDrag);
+                document.removeEventListener('mouseup', closeDragElement);
+                draggable.style.transition = 'background 0.3s';
+                savePositions();
+            }
+        });
+
+        // Event listeners
+        document.getElementById('inventorySearch').addEventListener('input', function() {
+            const currentInventory = document.querySelector('.inventory-content').getAttribute('data-inventory');
+            if (currentInventory) {
+                updateInventory(currentInventory);
+            }
+        });
+
+        window.addEventListener("message", (event) => {
+            const data = event.data.data;
+            if (!data) return;
+
+            if (data.speed !== undefined && data.rpm !== undefined) {
+                updateGauges(data.speed, data.rpm);
+            }
+
+            if (data.inventory) {
+                document.querySelector('.inventory-content').setAttribute('data-inventory', data.inventory);
+                updateInventory(data.inventory);
+            }
+
+            if (data.job_name) {
+                document.getElementById('jobName').textContent = data.job_name || 'None';
+            }
+
+            if (data.weight !== undefined && data.max_weight !== undefined) {
+                document.getElementById('weight-info').textContent = `Weight: ${data.weight}/${data.max_weight}`;
+            }
+        });
+
+        // Load saved positions on startup
+        window.addEventListener('load', loadPositions);
+    </script>
+
     <style>
-        :root {
-            --gauge-size: 180px;
-            --needle-color: #e74c3c;
-            --gauge-bg: rgba(30, 30, 30, 0.95);
-        }
-
-        body {
-            margin: 0;
-            padding: 20px;
-            background: transparent;
-            font-family: 'Arial', sans-serif;
+        .widget {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 10px;
+            padding: 15px;
             color: white;
-            height: 100vh;
-            display: grid;
-            grid-template-columns: auto 300px;
-            gap: 20px;
-            overflow: hidden;
+            user-select: none;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            transition: background 0.3s;
         }
 
-        .gauges {
+        .widget:hover {
+            background: rgba(0, 0, 0, 0.9);
+        }
+
+        .gauge-widget {
+            top: 20px;
+            right: 20px;
+            width: 400px;
+            z-index: 1000;
+        }
+
+        .inventory-widget {
+            top: 20px;
+            left: 20px;
+            width: 300px;
+            max-height: 500px;
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            z-index: 1000;
         }
 
         .gauge-container {
-            background: var(--gauge-bg);
-            border-radius: 15px;
-            padding: 20px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.3);
-            backdrop-filter: blur(5px);
-            position: relative;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            flex-wrap: wrap;
         }
 
         .gauge {
-            width: var(--gauge-size);
-            height: var(--gauge-size);
+            width: 150px;
+            height: 150px;
+            background: #222;
             border-radius: 50%;
             position: relative;
+            margin: 10px;
+        }
+
+        .gauge::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
             background: conic-gradient(
-                #2ecc71 0deg,
-                #f1c40f 180deg,
-                #e74c3c 270deg,
-                #e74c3c 360deg
+                from 135deg,
+                #ff0000 0deg,
+                #ffff00 135deg,
+                #00ff00 270deg,
+                #00ff00 360deg
             );
-            -webkit-mask: radial-gradient(transparent 55%, black 56%);
+            mask: radial-gradient(transparent 65%, black 66%);
+            -webkit-mask: radial-gradient(transparent 65%, black 66%);
+        }
+
+        .gauge-center {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: #fff;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
         }
 
         .needle {
-            width: 2px;
-            height: 45%;
-            background: var(--needle-color);
             position: absolute;
+            width: 4px;
+            height: 60px;
+            background: #fff;
             left: 50%;
             bottom: 50%;
             transform-origin: bottom;
-            transition: transform 0.1s ease-out;
-            box-shadow: 0 0 5px var(--needle-color);
+            transform: translateX(-50%) rotate(0deg);
+            transition: transform 0.2s ease-out;
+            z-index: 9;
         }
 
-        .gauge-labels {
+        .gauge-value {
             position: absolute;
+            bottom: 25%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 24px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 5px rgba(0,0,0,0.5);
+        }
+
+        .gauge-label {
+            position: absolute;
+            bottom: 15%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 12px;
+            color: #aaa;
+        }
+
+        .job-info {
             width: 100%;
             text-align: center;
-            top: 65%;
-            font-size: 1.4em;
-            font-weight: bold;
-            text-shadow: 0 0 5px black;
+            padding: 10px;
+            font-size: 14px;
+            color: #aaa;
+            background: rgba(255,255,255,0.1);
+            border-radius: 5px;
+            margin-top: 10px;
         }
 
-        .mission-panel {
-            background: var(--gauge-bg);
-            border-radius: 15px;
-            padding: 15px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.3);
-            backdrop-filter: blur(5px);
+        .inventory-header {
+            padding: 10px;
+            border-bottom: 1px solid #333;
         }
 
-        .mission-title {
-            color: #f1c40f;
-            font-size: 1.2em;
-            margin-bottom: 10px;
+        .inventory-header h3 {
+            margin: 0 0 10px 0;
+            color: #4CAF50;
         }
 
-        .inventory {
-            background: var(--gauge-bg);
-            border-radius: 15px;
-            padding: 15px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.3);
-            backdrop-filter: blur(5px);
-            max-height: 300px;
+        .inventory-header input {
+            width: 100%;
+            padding: 8px;
+            background: #333;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            outline: none;
+            transition: background 0.3s;
+        }
+
+        .inventory-header input:focus {
+            background: #444;
+        }
+
+        .inventory-content {
             overflow-y: auto;
+            max-height: 400px;
+            padding: 10px;
+        }
+
+        .inventory-footer {
+            padding: 10px;
+            border-top: 1px solid #333;
+            text-align: right;
+            color: #aaa;
+            font-size: 12px;
         }
 
         .inventory-item {
             display: flex;
             justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding: 8px;
+            border-bottom: 1px solid #333;
+            align-items: center;
+            transition: background 0.3s;
         }
 
-        .vehicle-status {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: var(--gauge-bg);
-            padding: 10px 15px;
-            border-radius: 8px;
-            font-size: 0.9em;
-            opacity: 0.8;
+        .inventory-item:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .item-name {
+            color: #fff;
+            font-size: 14px;
+        }
+
+        .item-amount {
+            background: #444;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            min-width: 30px;
+            text-align: center;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #222;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #444;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
         }
     </style>
-
-    <div class="gauges">
-        <!-- Hız Göstergesi -->
-        <div class="gauge-container">
-            <div class="gauge" id="speedGauge">
-                <div class="needle" id="speedNeedle"></div>
-            </div>
-            <div class="gauge-labels">
-                <div>KM/H</div>
-                <div id="speedValue">0</div>
-            </div>
-        </div>
-
-        <!-- RPM Göstergesi -->
-        <div class="gauge-container">
-            <div class="gauge" id="rpmGauge">
-                <div class="needle" id="rpmNeedle"></div>
-            </div>
-            <div class="gauge-labels">
-                <div>RPM</div>
-                <div id="rpmValue">0</div>
-            </div>
-        </div>
-    </div>
-
-    <div class="right-panel">
-        <div class="mission-panel">
-            <div class="mission-title">📌 Aktif Görev</div>
-            <div id="mission">Yükleniyor...</div>
-        </div>
-
-        <div class="inventory">
-            <div class="mission-title">🎒 Envanter</div>
-            <div id="inventoryItems"></div>
-        </div>
-    </div>
-
-    <div class="vehicle-status" id="vehicleStatus">
-        🚗 Araç: Yaya Modu
-    </div>
-
-    <script>
-        // Hız Hesaplama ve Gösterge Kontrolü
-        function updateSpeed(speedMps) {
-            const speedKmh = Math.round(speedMps * 3.6);
-            const rotation = (speedKmh / 240) * 270 - 135; // 0-240 km/h aralığı
-            document.getElementById('speedNeedle').style.transform = `rotate(${rotation}deg)`;
-            document.getElementById('speedValue').textContent = speedKmh;
-        }
-
-        // RPM Gösterge Kontrolü
-        function updateRPM(rpmNormalized) {
-            const rpm = Math.round(rpmNormalized * 8000);
-            const rotation = (rpm / 8000) * 270 - 135; // 0-8000 RPM aralığı
-            document.getElementById('rpmNeedle').style.transform = `rotate(${rotation}deg)`;
-            document.getElementById('rpmValue').textContent = rpm;
-        }
-
-        // Araç Durumu Güncelleme
-        function updateVehicleStatus(vehicleData) {
-            const statusElement = document.getElementById('vehicleStatus');
-            if(vehicleData.vehicle === 'onFoot') {
-                statusElement.innerHTML = '🚶 Yaya Modu';
-            } else {
-                statusElement.innerHTML = `
-                    🚗 ${vehicleData.vehicleMake} ${vehicleData.vehicleName}
-                    <br>⚙️ Sınıf: ${vehicleData.vehicleClassName} (${vehicleData.vehicleClass})
-                `;
-            }
-        }
-
-        // Envanter Güncelleme
-        function updateInventory(inventory) {
-            const container = document.getElementById('inventoryItems');
-            container.innerHTML = Object.entries(inventory)
-                .map(([item, data]) => `
-                    <div class="inventory-item">
-                        <span>${item.replace(/_/g, ' ')}</span>
-                        <span>${data.amount}x</span>
-                    </div>`
-                ).join('');
-        }
-
-        // Mesaj Dinleyici
-        window.addEventListener("message", (event) => {
-            const data = event.data.data;
-            
-            if(data.speed !== undefined) updateSpeed(data.speed);
-            if(data.rpm !== undefined) updateRPM(data.rpm);
-            if(data.job_name) document.getElementById('mission').textContent = data.job_name;
-            if(data.inventory) updateInventory(JSON.parse(data.inventory));
-            
-            // Araç bilgilerini güncelle
-            if(data.vehicle || data.vehicleMake) {
-                updateVehicleStatus({
-                    vehicle: data.vehicle,
-                    vehicleMake: data.vehicleMake,
-                    vehicleName: data.vehicleName,
-                    vehicleClass: data.vehicleClass,
-                    vehicleClassName: data.vehicleClassName
-                });
-            }
-        });
-
-        // Pencere Kontrolü
-        window.addEventListener('keydown', (e) => {
-            if(e.key === "Escape") window.parent.postMessage({type: "pin"}, "*");
-        });
-    </script>
 </html>
