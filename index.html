@@ -7,6 +7,7 @@
                 <button onclick="switchTab('data')" class="tab-btn active" id="dataTab">Data</button>
                 <button onclick="switchTab('commands')" class="tab-btn" id="commandsTab">Commands</button>
                 <button onclick="switchTab('triggers')" class="tab-btn" id="triggersTab">Triggers</button>
+                <button onclick="switchTab('docs')" class="tab-btn" id="docsTab">Documentation</button>
             </div>
         </div>
         
@@ -84,6 +85,29 @@
                         <h3>Custom Trigger</h3>
                         <input type="text" id="customTrigger" placeholder="Trigger name">
                         <button onclick="sendCustomTrigger()">Send Trigger</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="docs" class="tab-content">
+                <div class="docs-container">
+                    <div class="docs-input">
+                        <textarea id="docsInput" placeholder="Paste documentation content here..."></textarea>
+                        <button onclick="analyzeDocumentation()">Analyze</button>
+                    </div>
+                    <div class="docs-results">
+                        <div class="docs-section">
+                            <h3>Available Commands</h3>
+                            <div id="availableCommands"></div>
+                        </div>
+                        <div class="docs-section">
+                            <h3>Data Fields</h3>
+                            <div id="dataFields"></div>
+                        </div>
+                        <div class="docs-section">
+                            <h3>Events & Triggers</h3>
+                            <div id="eventsTriggers"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -192,6 +216,77 @@
 
         // Initial data load
         refreshData();
+
+        function analyzeDocumentation() {
+            const content = document.getElementById('docsInput').value;
+
+            const commands = [];
+            const dataFields = [];
+            const events = [];
+
+            // Parse commands
+            const commandRegex = /Command[^\n]*[\n\s]+([^\n]+)/g;
+            let match;
+            while ((match = commandRegex.exec(content)) !== null) {
+                if (match[1].includes('Parameters') || match[1].includes('Description')) continue;
+                commands.push({
+                    name: match[1].split(' ')[0].trim(),
+                    params: match[1].includes(':') ? match[1].split(':')[1].trim() : '',
+                    description: match[1].includes('--') ? match[1].split('--')[1].trim() : ''
+                });
+            }
+
+            // Parse data fields
+            const dataRegex = /\|\s*(\w+)\s*\|\s*([\w\s]+)\s*\|\s*([^\|]+)\|/g;
+            while ((match = dataRegex.exec(content)) !== null) {
+                if (match[1] === 'Key' || match[1] === 'Type') continue;
+                dataFields.push({
+                    name: match[1].trim(),
+                    type: match[2].trim(),
+                    description: match[3].trim()
+                });
+            }
+
+            // Parse events/triggers
+            const triggerRegex = /trigger_(\w+)/g;
+            while ((match = triggerRegex.exec(content)) !== null) {
+                events.push({
+                    name: match[1],
+                    type: 'Trigger'
+                });
+            }
+
+            displayResults(commands, dataFields, events);
+        }
+
+        function displayResults(commands, dataFields, events) {
+            const commandsContainer = document.getElementById('availableCommands');
+            const dataContainer = document.getElementById('dataFields');
+            const eventsContainer = document.getElementById('eventsTriggers');
+
+            commandsContainer.innerHTML = commands.map(cmd => `
+                <div class="feature-item">
+                    <h4>${cmd.name}</h4>
+                    ${cmd.description ? `<p>${cmd.description}</p>` : ''}
+                    ${cmd.params ? `<div class="feature-params">Parameters: ${cmd.params}</div>` : ''}
+                </div>
+            `).join('');
+
+            dataContainer.innerHTML = dataFields.map(field => `
+                <div class="feature-item">
+                    <h4>${field.name}</h4>
+                    <p>${field.description}</p>
+                    <div class="feature-params">Type: ${field.type}</div>
+                </div>
+            `).join('');
+
+            eventsContainer.innerHTML = events.map(event => `
+                <div class="feature-item">
+                    <h4>${event.name}</h4>
+                    <p>Type: ${event.type}</p>
+                </div>
+            `).join('');
+        }
     </script>
 
     <style>
@@ -353,6 +448,65 @@
 
         .trigger-status {
             color: #666;
+        }
+
+        .docs-container {
+            display: grid;
+            grid-template-rows: auto 1fr;
+            gap: 20px;
+        }
+
+        .docs-input {
+            display: flex;
+            gap: 10px;
+        }
+
+        .docs-input textarea {
+            height: 150px;
+        }
+
+        .docs-results {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .docs-section {
+            background-color: #f8f8f8;
+            padding: 15px;
+            border-radius: 4px;
+        }
+
+        .docs-section h3 {
+            margin: 0 0 15px 0;
+            color: #333;
+        }
+
+        .feature-item {
+            background-color: white;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            border-left: 4px solid #4CAF50;
+        }
+
+        .feature-item h4 {
+            margin: 0 0 5px 0;
+            color: #333;
+        }
+
+        .feature-item p {
+            margin: 0;
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .feature-params {
+            margin-top: 5px;
+            padding-left: 10px;
+            border-left: 2px solid #ddd;
+            font-size: 0.85em;
+            color: #888;
         }
     </style>
 </html>
