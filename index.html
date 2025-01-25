@@ -5,9 +5,9 @@
     <style>
         body {
             font-family: Arial;
-            background: rgba(0,0,0,0.8);
             color: white;
             padding: 15px;
+            margin: 0;
         }
         .container {
             width: 300px;
@@ -21,14 +21,8 @@
             border-radius: 5px;
             margin-bottom: 10px;
         }
-        .label { 
-            color: #999;
-            font-size: 12px; 
-        }
-        .value { 
-            font-size: 16px;
-            margin-top: 3px;
-        }
+        .label { color: #999; font-size: 12px; }
+        .value { font-size: 16px; margin-top: 3px; }
     </style>
 </head>
 <body>
@@ -50,43 +44,38 @@
     </div>
 
     <script>
-        const updateUI = (data) => {
-            if (data.name) {
-                document.getElementById('playerInfo').textContent = `${data.name} [ID: ${data.user_id || '-'}]`;
+        window.addEventListener("message", (event) => {
+            const evt = event.data;
+            if (!evt.data) return;
+            
+            // Oyuncu bilgisi
+            if (evt.data.name || evt.data.user_id) {
+                document.getElementById('playerInfo').textContent = 
+                    `${evt.data.name || '-'} [ID: ${evt.data.user_id || '-'}]`;
             }
 
-            if (data.zoneName || data.street) {
+            // Konum
+            if (evt.data.zoneName || evt.data.street) {
                 document.getElementById('location').textContent = 
-                    `${data.zoneName || ''} ${data.street ? `- ${data.street}` : ''}`;
+                    `${evt.data.zoneName || ''} ${evt.data.street ? `- ${evt.data.street}` : ''}`;
             }
 
-            if (data.wallet !== undefined || data.bank !== undefined) {
-                const wallet = data.wallet || 0;
-                const bank = data.bank || 0;
+            // Bakiye
+            if (evt.data.wallet !== undefined || evt.data.bank !== undefined) {
                 document.getElementById('money').textContent = 
-                    `$${wallet.toLocaleString()} (Banka: $${bank.toLocaleString()})`;
-            }
-        };
-
-        window.addEventListener('message', (event) => {
-            const data = event.data.data;
-            if (!data) return;
-            updateUI(data);
-        });
-
-        // ESC ile kapat
-        document.addEventListener('keyup', (event) => {
-            if (event.key === 'Escape') {
-                window.parent.postMessage({type: 'close'}, '*');
+                    `$${(evt.data.wallet || 0).toLocaleString()} (Banka: $${(evt.data.bank || 0).toLocaleString()})`;
             }
         });
 
-        // İlk veri isteği
-        fetch('nui://game/getData', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({type: 'getData'})
-        }).catch(console.error);
+        // Veri isteği gönder
+        window.parent.postMessage({type: "getData"}, "*");
+
+        // ESC tuşu ile kapatma
+        window.addEventListener('keydown', (e) => {
+            if (e.key === "Escape") {
+                window.parent.postMessage({type: "pin"}, "*");
+            }
+        });
     </script>
 </body>
 </html>
