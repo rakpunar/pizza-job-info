@@ -18,8 +18,18 @@
             </div>
 
             <div style="margin-bottom: 15px;">
-                <div style="color: #999; font-size: 12px;">ENVANTER</div>
-                <div id="inventory" style="font-size: 14px; margin-top: 3px;">Yükleniyor...</div>
+                <div style="color: #999; font-size: 12px;">GÖREV DETAYLARI</div>
+                <div id="taskDetails" style="font-size: 14px; margin-top: 3px;">-</div>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <div style="color: #999; font-size: 12px;">KONUM</div>
+                <div id="location" style="font-size: 14px; margin-top: 3px;">-</div>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <div style="color: #999; font-size: 12px;">PIZZA MALZEMELERİ</div>
+                <div id="pizzaItems" style="font-size: 14px; margin-top: 3px;">Yükleniyor...</div>
             </div>
 
             <div>
@@ -32,16 +42,11 @@
     <script>
         const API_URL = 'tycoon-2epova.users.cfx.re/status';
         const USER_ID = '227724';
-        const API_KEY = 'MXmNGqARCoXgKgZOp7LO13omYG9D23tfkNVik'; // API key buraya
+        const API_KEY = 'MXmNGqARCoXgKgZOp7LO13omYG9D23tfkNVik';
 
-        // İtem isimlerini düzeltme
-        const formatItemName = (name) => {
-            const parts = name.split('|');
-            if (parts.length > 1) {
-                return parts[parts.length - 1].toUpperCase();
-            }
-            return name.replace(/_/g, ' ').toUpperCase();
-        };
+        const PIZZA_ITEMS = [
+            'Pizza', 'Fries', 'Soda', 'Expensive Water', 'Chicken Nuggets'
+        ];
 
         async function fetchAPI(endpoint) {
             try {
@@ -56,44 +61,42 @@
         }
 
         async function refreshData() {
-            // Temel veri
-            const userData = await fetchAPI(`/dataadv/${USER_ID}`);
-            // Oyuncu pozisyonu ve aktif durum
-            const mapData = await fetchAPI('/map/positions.json');
-            // Bakiye
-            const wealthData = await fetchAPI(`/wealth/${USER_ID}`);
+            const [userData, mapData, wealthData] = await Promise.all([
+                fetchAPI(`/dataadv/${USER_ID}`),
+                fetchAPI('/map/positions.json'),
+                fetchAPI(`/wealth/${USER_ID}`)
+            ]);
 
-            // Oyuncu durumu
-            let status = 'Çevrimdışı';
+            // Oyuncu durumu ve konum
             if (mapData?.players) {
                 const player = mapData.players.find(p => p[2] == USER_ID);
                 if (player) {
-                    status = `Çevrimiçi<br>`;
-                    status += `İş: ${player[5]?.name || 'Yok'}<br>`;
-                    if (player[4]?.vehicle_name) {
-                        status += `Araç: ${player[4].vehicle_name}`;
+                    const status = `Çevrimiçi<br>İş: ${player[5]?.name || 'Yok'}<br>Araç: ${player[4]?.vehicle_name || 'None'}`;
+                    document.getElementById('playerStatus').innerHTML = status;
+
+                    const pos = player[3];
+                    const location = `X: ${Math.round(pos.x)}<br>Y: ${Math.round(pos.y)}<br>Z: ${Math.round(pos.z)}`;
+                    document.getElementById('location').innerHTML = location;
+
+                    // Görev detayları
+                    if (player[5]?.name === 'Pizza Delivery') {
+                        document.getElementById('taskDetails').innerHTML = 
+                            `Aktif Görev: Pizza Delivery<br>` +
+                            `Görev Durumu: ${player[5]?.state || 'Bilinmiyor'}`;
                     }
                 }
             }
-            document.getElementById('playerStatus').innerHTML = status;
 
-            // Envanter
+            // Pizza malzemeleri
             if (userData?.data?.inventory) {
-                const invHtml = Object.entries(userData.data.inventory)
-                    .sort((a, b) => b[1].amount - a[1].amount)
-                    .map(([item, data]) => {
-                        const name = formatItemName(item);
-                        const amount = data.amount || 0;
-                        if (amount > 0) {
-                            return `<div style="display: flex; justify-content: space-between; padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,0.1)">
-                                <span>${name}:</span>
-                                <span>${amount}</span>
-                            </div>`;
-                        }
-                    })
-                    .filter(Boolean)
-                    .join('');
-                document.getElementById('inventory').innerHTML = invHtml || 'Envanter boş';
+                const pizzaHtml = PIZZA_ITEMS.map(item => {
+                    const amount = userData.data.inventory[item]?.amount || 0;
+                    return `<div style="display: flex; justify-content: space-between; padding: 2px 0;">
+                        <span>${item}:</span>
+                        <span>${amount}</span>
+                    </div>`;
+                }).join('');
+                document.getElementById('pizzaItems').innerHTML = pizzaHtml;
             }
 
             // Bakiye
