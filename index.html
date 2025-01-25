@@ -1,44 +1,19 @@
-<!DOCTYPE html>
 <html>
-<head>
     <title>Basic Tracker</title>
-    <style>
-        body {
-            font-family: Arial;
-            color: white;
-            padding: 15px;
-            margin: 0;
-        }
-        .container {
-            width: 300px;
-            position: fixed;
-            right: 20px;
-            top: 20px;
-        }
-        .info-box {
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 10px;
-        }
-        .label { color: #999; font-size: 12px; }
-        .value { font-size: 16px; margin-top: 3px; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="info-box">
-            <div class="label">OYUNCU BİLGİSİ</div>
-            <div class="value" id="playerInfo">-</div>
+    <div style="width: 300px; position: fixed; right: 20px; top: 20px; font-family: Arial; color: white;">
+        <div style="background: rgba(30,30,30,0.9); padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+            <div style="color: #999; font-size: 12px;">OYUNCU BİLGİSİ</div>
+            <div style="font-size: 16px; margin-top: 3px;" id="playerInfo">-</div>
         </div>
 
-        <div class="info-box">
-            <div class="label">KONUM</div>
-            <div class="value" id="location">-</div>
+        <div style="background: rgba(30,30,30,0.9); padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+            <div style="color: #999; font-size: 12px;">KONUM</div>
+            <div style="font-size: 16px; margin-top: 3px;" id="location">-</div>
         </div>
 
-        <div class="info-box">
-            <div class="label">BAKIYE</div>
-            <div class="value" id="money">-</div>
+        <div style="background: rgba(30,30,30,0.9); padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+            <div style="color: #999; font-size: 12px;">ENVANTER</div>
+            <div style="font-size: 16px; margin-top: 3px;" id="inventory">-</div>
         </div>
     </div>
 
@@ -59,22 +34,35 @@
                     `${evt.data.zoneName || ''} ${evt.data.street ? `- ${evt.data.street}` : ''}`;
             }
 
-            // Bakiye
-            if (evt.data.wallet !== undefined || evt.data.bank !== undefined) {
-                document.getElementById('money').textContent = 
-                    `$${(evt.data.wallet || 0).toLocaleString()} (Banka: $${(evt.data.bank || 0).toLocaleString()})`;
+            // Envanter kontrolü
+            if (evt.data.inventory) {
+                try {
+                    const inv = JSON.parse(evt.data.inventory);
+                    const pizzaItems = Object.entries(inv).reduce((acc, [key, value]) => {
+                        if (key.toLowerCase().includes('pizza')) {
+                            acc[key] = value;
+                        }
+                        return acc;
+                    }, {});
+                    
+                    if (Object.keys(pizzaItems).length > 0) {
+                        document.getElementById('inventory').innerHTML = Object.entries(pizzaItems)
+                            .map(([item, count]) => `${item}: ${count}`).join('<br>');
+                    } else {
+                        document.getElementById('inventory').textContent = 'Pizza malzemesi yok';
+                    }
+                } catch (e) {
+                    console.error('Envanter parse hatası:', e);
+                }
             }
         });
 
-        // Veri isteği gönder
         window.parent.postMessage({type: "getData"}, "*");
 
-        // ESC tuşu ile kapatma
         window.addEventListener('keydown', (e) => {
             if (e.key === "Escape") {
                 window.parent.postMessage({type: "pin"}, "*");
             }
         });
     </script>
-</body>
 </html>
